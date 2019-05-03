@@ -2,6 +2,8 @@
 from pyspark.mllib.linalg import Vectors # Functions
 import numpy as np
 from numpy import random as rn, linalg as lin
+# Performance tests
+import time
 
 
 ## Needed Functions ##
@@ -32,14 +34,11 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 	# Initial distance computation
 	for index in range(len(P)):
 		# Compute new distance, between point and new center
-		newDist = lin.norm(P[index] - setCenters[0])
-		setMinDist[index] = newDist
+		setMinDist[index] = lin.norm(P[index] - setCenters[0])
 
 	# Main algorithm loop
 	for round in range(0, k-1): # Only k-1 centers stil have to be chosen
 
-		# Initialize probabilities bucket
-		setProb = np.zeros(len(P))
 		# Compute the points' probabilities
 		setProb = np.multiply(setMinDist, WP)
 		# Normalization factor
@@ -53,11 +52,11 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 		luckyIndex = np.argwhere(cumProb > randChoice)[0]
 		luckyIndex = luckyIndex[0]
 		# Add winner to the centers set
-		print("luckyIndex " + str(luckyIndex))
 		setCenters.append(P[luckyIndex])
 		# Remove it from other sets
 		P.pop(luckyIndex)
 		WP = np.delete(WP, luckyIndex)
+		setMinDist = np.delete(setMinDist, luckyIndex)
 
 		# Update min distance by checking if closer to new center than before
 		for index in range(len(P)):
@@ -68,8 +67,18 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 				setMinDist[index] = newDist
 
 
+	# Refine centers set using Lloyd's algorithm
+	### STILL TO DO ###
+
 	return setCenters
 
+# KMedian cost function, P set points, C set centers
+def KMedianCost(P, C) 
+	
+	# Assign 
+
+
+	return -1
 
 # Read the file containing the data
 # For testing purposed, pre-set the filename
@@ -77,14 +86,24 @@ filename = "covtype10K.data"
 vectorData = readVectorsSeq(filename)
 # Now vectorData is a list of linalg.Vectors
 
-# Just testing set of 10 points in R2
-testWeights = np.ones(10)
+#####################################
+# Just testing set of x points in R2
+x = 20000
+testWeights = np.ones(x)
 testPoints = []
-for k in range(10):
+for k in range(x):
 	# Create point
 	testVector = [rn.uniform(), rn.uniform()]
 	testPoints.append(Vectors.dense(testVector))
 
+# Check performance
+check = time.time()
 testOutput = kmeansPP(testPoints, testWeights, 3, 3)
+print(time.time() - check)
+
+# Check if it works: is it better than randomly picking the points as centers?
+
+
+#####################################
 
 
