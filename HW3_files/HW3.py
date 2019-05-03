@@ -73,12 +73,31 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 	return setCenters
 
 # KMedian cost function, P set points, C set centers
-def KMedianCost(P, C) 
-	
-	# Assign 
+# Assumes both represented as lists of DenseVectors
+def kmeansObj(P, C):
+	# Scan through all points, set distance as min among the centers
+	# Keep just cumulative distance, since output is just average
+
+	# Initialize avge cost
+	avgeCost = 0
+
+	# Scan through points
+	for point in P:
+		# Initialize as cost between point and first center
+		pointCost = lin.norm(point - C[0]) 
+		for centerIndex in range(1, len(C)):
+			# If better cost, update
+			if(lin.norm(point- C[centerIndex]) < pointCost):
+				pointCost = lin.norm(point - C[centerIndex])
+
+		avgeCost = avgeCost + pointCost
+
+	return avgeCost/len(P)
 
 
-	return -1
+
+
+# Actual program
 
 # Read the file containing the data
 # For testing purposed, pre-set the filename
@@ -96,14 +115,30 @@ for k in range(x):
 	testVector = [rn.uniform(), rn.uniform()]
 	testPoints.append(Vectors.dense(testVector))
 
-# Check performance
-check = time.time()
 testOutput = kmeansPP(testPoints, testWeights, 3, 3)
-print(time.time() - check)
-
-# Check if it works: is it better than randomly picking the points as centers?
-
-
 #####################################
 
 
+# Test on the proper dataset 
+k = 5
+iterations = 10
+testOutput = kmeansPP(vectorData, np.ones(len(vectorData)), k, iterations)
+testCost = kmeansObj(vectorData, testOutput)
+print("Average distance of a point from set of centers: " + str(testCost))
+
+# Check if it works: is it better than randomly picking the points as centers?
+# WARNING: SLOW
+
+suspiciousTrials = 0
+maxTrials = 100
+
+for trials in range(maxTrials):
+	# Pick k random centers, compute distance
+	randCenters = []
+	for center in range(k):
+		temp = vectorData[rn.randint(0, len(vectorData))]
+		randCenters.append(Vectors.dense(temp))
+	if(kmeansObj(vectorData, randCenters) < testCost):
+		suspiciousTrials = suspiciousTrials + 1
+
+print("We should be " + str(suspiciousTrials/maxTrials*100) + "% worried!")
