@@ -127,7 +127,7 @@ testCost = kmeansObj(vectorData, testOutput)
 print("Average distance of a point from set of centers: " + str(testCost))
 
 # Check if it works: is it better than randomly picking the points as centers?
-# WARNING: SLOW
+# WARNING: Not particularly relevant without refinement, probably
 
 suspiciousTrials = 0
 maxTrials = 100
