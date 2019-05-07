@@ -1,23 +1,23 @@
-# Import needed linear algebra libraries
-from pyspark.mllib.linalg import Vectors # Functions
+from pyspark.mllib.linalg import Vectors  # Functions
 import numpy as np
 from numpy import random as rn, linalg as lin
-# Performance tests
-import time
+import time  # Performance tests
 
 
-## Needed Functions ##
+# Needed Functions #
+
 
 # Function given as a starting point, used to load file
 def readVectorsSeq(filename):
-    file = open(filename, 'r')
-    vector_list = []
-    for row in file.readlines():
-        vector_list.append(Vectors.dense([float(num_str) for num_str in row.split()]))
-    return vector_list
+	file = open(filename, 'r')
+	vector_list = []
+	for row in file.readlines():
+		vector_list.append(Vectors.dense([float(num_str) for num_str in row.split()]))
+	return vector_list
+
 
 # Sequential KMeans++ function
-def kmeansPP(P,WP,k,iter): # WP must be column vector
+def kmeansPP(P, WP, k, iter):  # WP must be column vector
 
 	# Set of centers which will be returned on output
 	setCenters = []
@@ -25,10 +25,12 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 	# Start by picking first center at random
 	randChoice = rn.randint(0, len(P))
 	setCenters.append(P[randChoice])
+
 	# Remove such point from initial set and weights set
 	P.pop(randChoice)
-	WP =  np.delete(WP, randChoice)
-	# Each iter we need distance points to closest center
+	WP = np.delete(WP, randChoice)
+
+	# Each iteration we need distance points to closest center
 	setMinDist = np.zeros(len(P))
 
 	# Initial distance computation
@@ -37,12 +39,12 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 		setMinDist[index] = lin.norm(P[index] - setCenters[0])
 
 	# Main algorithm loop
-	for round in range(0, k-1): # Only k-1 centers stil have to be chosen
+	for round in range(0, k-1):  # Only k-1 centers stil have to be chosen
 
 		# Compute the points' probabilities
 		setProb = np.multiply(setMinDist, WP)
 		# Normalization factor
-		setProb = setProb/np.dot(setMinDist, WP) # Possible errors, in case specify first row
+		setProb = setProb/np.dot(setMinDist, WP)  # Possible errors, in case specify first row
 
 		# Sample random int, use cumsum of pr.ties as tresholds
 		randChoice = rn.rand()
@@ -72,6 +74,7 @@ def kmeansPP(P,WP,k,iter): # WP must be column vector
 
 	return setCenters
 
+
 # KMedian cost function, P set points, C set centers
 # Assumes both represented as lists of DenseVectors
 def kmeansObj(P, C):
@@ -84,17 +87,15 @@ def kmeansObj(P, C):
 	# Scan through points
 	for point in P:
 		# Initialize as cost between point and first center
-		pointCost = lin.norm(point - C[0]) 
+		pointCost = lin.norm(point - C[0])
 		for centerIndex in range(1, len(C)):
 			# If better cost, update
-			if(lin.norm(point- C[centerIndex]) < pointCost):
+			if lin.norm(point - C[centerIndex]) < pointCost:
 				pointCost = lin.norm(point - C[centerIndex])
 
 		avgeCost = avgeCost + pointCost
 
 	return avgeCost/len(P)
-
-
 
 
 # Actual program
@@ -138,7 +139,7 @@ for trials in range(maxTrials):
 	for center in range(k):
 		temp = vectorData[rn.randint(0, len(vectorData))]
 		randCenters.append(Vectors.dense(temp))
-	if(kmeansObj(vectorData, randCenters) < testCost):
+	if kmeansObj(vectorData, randCenters) < testCost:
 		suspiciousTrials = suspiciousTrials + 1
 
 print("We should be " + str(suspiciousTrials/maxTrials*100) + "% worried!")
