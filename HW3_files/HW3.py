@@ -6,6 +6,18 @@ from functools import reduce
 from operator import add
 
 
+# TODO: lloyd must also take into account the weights
+"""
+
+For groups of 2 students: The iterations of Lloyd's algorithm that you must apply after kmeans++ in method kmeansPP(P, WP, k, iter) must take into account the weights. I recall that the centroid of a cluster C in this case is defined as:
+
+(1/sum_{p in C} w(p)) * sum_{p in C} p*w(p)
+
+This is explained in Slide 24 of the Slides on Clustering Part 2.
+"""
+# TODO: in the KMeans++ can't pop the elements, it changes the set
+
+
 # Function given as a starting point, used to load file
 def readVectorsSeq(filename):
 	file = open(filename, 'r')
@@ -16,8 +28,7 @@ def readVectorsSeq(filename):
 
 
 # lloyd function
-# takes too much time..?
-# points: list of points, centers: precomputed centers, iters: number of iterations in lloyd algo
+# points: list of points, centers: default centers, iters: number of iterations in lloyd algo
 def lloyd(points, centers, iters):
 	points_length = len(points)
 	center_length = len(centers)
@@ -31,7 +42,7 @@ def lloyd(points, centers, iters):
 			point_cluster_index = -1
 			point_min_dist = np.inf
 			for center_index in range(center_length):
-				curr_dist = lin.norm(points[point_index] - new_centers[center_index])
+				curr_dist = lin.norm(points[point_index] - new_centers[center_index], ord=1)
 				if curr_dist < point_min_dist:
 					point_cluster_index = center_index
 					point_min_dist = curr_dist
@@ -39,8 +50,8 @@ def lloyd(points, centers, iters):
 
 		# recompute centers
 		for center_index in range(center_length):
-			curr_cluster_bool = clustered_points == center_index
-			curr_cluster_points = [points[i] for i in range(points_length) if curr_cluster_bool[i]]
+			# curr_cluster_bool = clustered_points == center_index
+			curr_cluster_points = [points[i] for i in range(points_length) if clustered_points[i] == center_index]
 
 			vectors_sum = reduce(add, curr_cluster_points)
 			new_center = vectors_sum / len(curr_cluster_points)
@@ -50,64 +61,68 @@ def lloyd(points, centers, iters):
 
 
 # Sequential KMeans++ function
-def kmeansPP(points, point_weights, k, iter):  # point_weights must be column vector
+def kmeansPP(P, WP, k, iter):  # WP must be column vector
 
 	# Set of centers which will be returned on output
-	setCenters = []
+	center_set = []
 
 	# Start by picking first center at random
-	rand_choice = rn.randint(0, len(points))
-	setCenters.append(points[rand_choice])
+	rand_choice = rn.randint(0, len(P))
+	center_set.append(P[rand_choice])
 
 	# Remove such point from initial set and weights set
-	points.pop(rand_choice)
-	point_weights = np.delete(point_weights, rand_choice)
+	# TODO: wrong, editing point set, parameter by reference
+	P.pop(rand_choice)
+	WP = np.delete(WP, rand_choice)
 
-	# Each iteration we need distance points to closest center
-	setMinDist = np.zeros(len(points))
+	# Each iteration we need distance of P to the closest center
+	setMinDist = np.zeros(len(P))
 
 	# Initial distance computation
-	for index in range(len(points)):
+	for index in range(len(P)):
 		# Compute new distance, between point and new center
-		setMinDist[index] = lin.norm(points[index] - setCenters[0])
+		setMinDist[index] = lin.norm(P[index] - center_set[0], ord=1)
 
 	# Main algorithm loop
-	for round in range(0, k-1):  # Only k-1 centers stil have to be chosen
+	for round in range(0, k-1):  # Only k-1 centers still have to be chosen
 
-		# Compute the points' probabilities
-		setProb = np.multiply(setMinDist, point_weights)
+		# Compute the P' probabilities
+		prob_set = np.multiply(setMinDist, WP)
+
 		# Normalization factor
-		setProb = setProb/np.dot(setMinDist, point_weights)  # Possible errors, in case specify first row
+		prob_set = prob_set/np.dot(setMinDist, WP)
 
-		# Sample random int, use cumsum of pr.ties as tresholds
+		# Sample random int, use cumsum of probabilities as thresholds
 		rand_choice = rn.rand()
-		cumProb = np.cumsum(setProb)
+		cumProb = np.cumsum(prob_set)
 
-		# Check which center to choose, according to tresholds
+		# Check which center to choose, according to thresholds
 		luckyIndex = np.argwhere(cumProb > rand_choice)[0]
 		luckyIndex = luckyIndex[0]
+
 		# Add winner to the centers set
-		setCenters.append(points[luckyIndex])
+		center_set.append(P[luckyIndex])
+
 		# Remove it from other sets
-		points.pop(luckyIndex)
-		point_weights = np.delete(point_weights, luckyIndex)
+		P.pop(luckyIndex)
+		WP = np.delete(WP, luckyIndex)
 		setMinDist = np.delete(setMinDist, luckyIndex)
 
 		# Update min distance by checking if closer to new center than before
-		for index in range(len(points)):
+		for index in range(len(P)):
 			# Compute new distance, between point and new center
-			newDist = lin.norm(points[index] - setCenters[round])
+			newDist = lin.norm(P[index] - center_set[round], ord=1)
 			# Update distance if smaller
 			if newDist < setMinDist[index]:
 				setMinDist[index] = newDist
 
 	start = time.time()
-	new_centers = lloyd(points, setCenters, iter)
+	new_centers = lloyd(P, center_set, iter)
 	end = time.time()
 	print("time in lloyd", end - start)
 
 	# for now: return precomputed and after lloyd to see the difference
-	return setCenters, new_centers
+	return center_set, new_centers
 
 
 # KMedian cost function, P set points, C set centers
@@ -116,72 +131,62 @@ def kmeansObj(P, C):
 	# Scan through all points, set distance as min among the centers
 	# Keep just cumulative distance, since output is just average
 
-	# Initialize avge cost
-	avgeCost = 0
+	sum_of_distances = 0
 
 	# Scan through points
 	for point in P:
+
 		# Initialize as cost between point and first center
-		pointCost = lin.norm(point - C[0])
-		for centerIndex in range(1, len(C)):
+		point_cost = lin.norm(point - C[0], ord=1)
+
+		for center_index in range(1, len(C)):
 			# If better cost, update
-			if lin.norm(point - C[centerIndex]) < pointCost:
-				pointCost = lin.norm(point - C[centerIndex])
+			if lin.norm(point - C[center_index], ord=1) < point_cost:
+				point_cost = lin.norm(point - C[center_index], ord=1)
 
-		avgeCost = avgeCost + pointCost
+		sum_of_distances = sum_of_distances + point_cost
 
-	return avgeCost/len(P)
+	return sum_of_distances/len(P)
 
 
-# Actual program
+# --------------------------------
 
-# Read the file containing the data
-# For testing purposed, pre-set the filename
-filename = "covtype10K.data"
-vectorData = readVectorsSeq(filename)
-# Now vectorData is a list of linalg.Vectors
+filename = "covtype10K.data"  # file with the data
+k = 5  # number of centers
+iterations = 4  # number of iterations
 
-# I think this test is kind of useless, it was useful just in the beginning, right?
-"""
-#####################################
-# Just testing set of x points in R2
-x = 20000
-testWeights = np.ones(x)
-testPoints = []
-for k in range(x):
-	# Create point
-	testVector = [rn.uniform(), rn.uniform()]
-	testPoints.append(Vectors.dense(testVector))
+vectorData = readVectorsSeq(filename)  # read the file containing the data
+# vectorData is a list of linalg.Vectors
 
-testOutput, testOutputeNewOne = kmeansPP(testPoints, testWeights, 3, 3)
-#####################################
-"""
-
-# Test on the proper dataset 
-k = 5
-iterations = 10
 testOutput, test_new_output = kmeansPP(vectorData, np.ones(len(vectorData)), k, iterations)
+
+# test the result:
 testCost = kmeansObj(vectorData, testOutput)
 test_new_cost = kmeansObj(vectorData, test_new_output)
+
 print("Average distance of a point from set of centers: " + str(testCost))
 print("Average distance of a point from set of centers: " + str(test_new_cost))
 
-# Check if it works: is it better than randomly picking the points as centers?
-# WARNING: Not particularly relevant without refinement, probably
 
 
-suspiciousTrials = 0
+
+
+
+# -----------------------
+# testing, delete after
+
+errors = 0
 maxTrials = 100
 
-# I don't really understand this :-o
 for trials in range(maxTrials):
-	# Pick k random centers, compute distance
 	randCenters = []
-	for center in range(k):
+	for center_index in range(k):
 		temp = vectorData[rn.randint(0, len(vectorData))]
 		randCenters.append(Vectors.dense(temp))
-	if kmeansObj(vectorData, randCenters) < testCost:
-		suspiciousTrials = suspiciousTrials + 1
+	test_shit = lloyd(vectorData, randCenters, iterations)
+	test_without_kmeanspp = kmeansObj(vectorData, test_shit)
+	print(test_without_kmeanspp)
+	if test_without_kmeanspp < test_new_cost:
+		errors += 1
 
-print("We should be " + str(suspiciousTrials/maxTrials*100) + "% worried!")
-
+print("errors: ", errors, " of: ", maxTrials)
