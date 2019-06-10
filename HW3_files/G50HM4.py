@@ -167,17 +167,16 @@ def MR_kmedian(pointset, k, L, iterations):
 	return objective
 
 
-
 def f1(line):
 	return Vectors.dense([float(coord) for coord in line.split(" ") if len(coord) > 0])
 
 
 def main(argv):
 	# Avoided controls on input..
-	dataset = "covtype10K.data"  # argv[1]
-	k = 20  # int(argv[2])
-	L = 8  # int(argv[3])
-	iterations = 10  # int(argv[4])
+	dataset = argv[1]
+	k = int(argv[2])
+	L = int(argv[3])
+	iterations = int(argv[4])
 	conf = SparkConf().setAppName('HM4 python Template')
 	sc = SparkContext(conf=conf)
 	pointset = sc.textFile(dataset).map(f1).repartition(L).cache()
@@ -193,7 +192,7 @@ def main(argv):
 
 if __name__ == '__main__':
 	# for testing purposes no params
-	"""if len(sys.argv) != 5:
+	if len(sys.argv) != 5:
 		print("Usage: <pathToFile> k L iter")
-		sys.exit(0)"""
+		sys.exit(0)
 	main(sys.argv)
