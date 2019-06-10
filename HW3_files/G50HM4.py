@@ -139,6 +139,15 @@ def f2(k, L, iterations, partition):
 	return [(vect, weight) for vect, weight in zip(centers, final_weights)]
 
 
+def f3(centers, partition):
+	points = [vector for vector in iter(partition)]
+	partition_sum = 0
+	num_centers = len(centers)
+	for vec in points:
+		partition_sum += min([lin.norm(vec - centers[i]) for i in range(0, num_centers)])
+	return [partition_sum]
+
+
 def MR_kmedian(pointset, k, L, iterations):
 	# ---------- ROUND 1 ---------------
 	coreset = pointset.mapPartitions(partial(f2, k, L, iterations))
@@ -151,7 +160,12 @@ def MR_kmedian(pointset, k, L, iterations):
 	centers = kmeansPP(centersR1, weightsR1, k, iterations)
 
 	# ---------- ROUND 3 --------------------------
-	# ---------- ADD YOUR CODE HERE ---------------
+	#  ---------- ADDED OUR CODE HERE -------------
+	#  (check it please)
+	sum_of_distances = pointset.mapPartitions(partial(f3, centers)).sum()
+	objective = sum_of_distances / pointset.count()
+	return objective
+
 
 
 def f1(line):
@@ -161,9 +175,9 @@ def f1(line):
 def main(argv):
 	# Avoided controls on input..
 	dataset = "covtype10K.data"  # argv[1]
-	k = 4  # int(argv[2])
-	L = 4  # int(argv[3])
-	iterations = 5  # int(argv[4])
+	k = 20  # int(argv[2])
+	L = 8  # int(argv[3])
+	iterations = 10  # int(argv[4])
 	conf = SparkConf().setAppName('HM4 python Template')
 	sc = SparkContext(conf=conf)
 	pointset = sc.textFile(dataset).map(f1).repartition(L).cache()
@@ -173,10 +187,8 @@ def main(argv):
 	print("Number of parts is : " + str(L))
 	print("Number of iterations is : " + str(iterations))
 
-	# the following line will give error right now.. the function is not returning anything
-	# obj = MR_kmedian(pointset, k, L, iterations)
-	MR_kmedian(pointset, k, L, iterations)
-	#print("Objective function is : " + str(obj))
+	obj = MR_kmedian(pointset, k, L, iterations)
+	print("Objective function is : " + str(obj))
 
 
 if __name__ == '__main__':
