@@ -177,7 +177,7 @@ def main(argv):
 	k = int(argv[2])
 	L = int(argv[3])
 	iterations = int(argv[4])
-	conf = SparkConf().setAppName('HM4 python Template')
+	conf = SparkConf().setAppName('HM450 python Template')
 	sc = SparkContext(conf=conf)
 	pointset = sc.textFile(dataset).map(f1).repartition(L).cache()
 	N = pointset.count()
