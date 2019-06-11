@@ -30,6 +30,7 @@ def lloyd(points, point_weights, centers, iters):
 		# compute the centers belonging to the points
 		for point_index in range(points_length):  # for each point
 			distances_from_centers = np.zeros(center_length)
+
 			for center_index in range(center_length):  # for each center compute the dist from the point
 				distances_from_centers[center_index] = lin.norm(points[point_index] - new_centers[center_index])
 			clustered_points[point_index] = np.argmin(distances_from_centers)  # pick the minimal dist
@@ -173,12 +174,15 @@ def f1(line):
 
 def main(argv):
 	# Avoided controls on input..
+
 	dataset = argv[1]
 	k = int(argv[2])
 	L = int(argv[3])
 	iterations = int(argv[4])
 	conf = SparkConf().setAppName('HM450 python Template')
 	sc = SparkContext(conf=conf)
+
+	start = time.time()
 	pointset = sc.textFile(dataset).map(f1).repartition(L).cache()
 	N = pointset.count()
 	print("Number of points is : " + str(N))
@@ -187,7 +191,9 @@ def main(argv):
 	print("Number of iterations is : " + str(iterations))
 
 	obj = MR_kmedian(pointset, k, L, iterations)
+	end = time.time()
 	print("Objective function is : " + str(obj))
+	print("Time spent in the whole computation: " + str(round(end - start, 2)) + "seconds")
 
 
 if __name__ == '__main__':
