@@ -2,11 +2,13 @@ import sys
 import math
 import numpy as np
 
+from scipy.spatial import distance
+
 from pyspark import SparkConf, SparkContext
 from pyspark.mllib.linalg import Vectors
 from functools import partial
 from random import randint
-from numpy import random as rn, linalg as lin
+from numpy import random as rn, linalg as lin, ma as msk
 import time
 from functools import reduce
 from operator import add
@@ -51,35 +53,36 @@ def lloyd(points, point_weights, centers, iters):
 # Sequential KMeans++ function
 def kmeansPP(P, WP, k, iter):  # point_weights must be column vector
 	print("  started kmeans++ precomputation")
+	start = time.time()
 
-	points = P.copy()  # copy so we can pop
-	point_weights = WP.copy()  # copy so we can pop
+	points = P  # copy so we can pop
+	point_weights = WP  # copy so we can pop
 	center_set = []  # Set of centers that will be returned
 
 	# Start by picking first center at random
 	rand_choice = rn.randint(0, len(points))
 	center_set.append(points[rand_choice])
 
-	# Remove such point from initial set and weights set
-	points.pop(rand_choice)
-	point_weights = np.delete(point_weights, rand_choice)
+	# Remove such point from initial set and weights set, by using mask array
+	del_mask = np.zeros(len(points))
+	del_mask[rand_choice] = 1
 
 	# Each iteration we need distance of points to the closest center
-	setMinDist = np.zeros(len(points))
-
 	# Initial distance computation
+	setMinDist = np.zeros(len(points))
 	for index in range(len(points)):
-		# Compute new distance, between point and new center
-		setMinDist[index] = lin.norm(points[index] - center_set[0])
+		setMinDist[index] = lin.norm(points[index]- center_set[0])
 
 	# Main algorithm loop
 	for round in range(0, k-1):  # Only k-1 centers still have to be chosen
 
 		# Compute the points' probabilities
-		prob_set = np.multiply(setMinDist, point_weights)
+		dist_masked = msk.masked_array(setMinDist, mask=del_mask)
+		weights_masked =  msk.masked_array(point_weights, mask=del_mask)
+		prob_set = np.multiply(dist_masked, weights_masked)
 
 		# Normalization factor
-		prob_set = prob_set/np.dot(setMinDist, point_weights)
+		prob_set = prob_set/np.dot(dist_masked, weights_masked)
 
 		# Sample random int, use cumsum of probabilities as thresholds
 		rand_choice = rn.rand()
@@ -90,12 +93,15 @@ def kmeansPP(P, WP, k, iter):  # point_weights must be column vector
 		luckyIndex = luckyIndex[0]
 
 		# Add winner to the centers set
+		# Add winner to the centers set
+		prev_count = np.sum(del_mask[1:luckyIndex])
+		luckyIndex = np.int_(prev_count) + luckyIndex
 		center_set.append(points[luckyIndex])
 
 		# Remove it from other sets
-		points.pop(luckyIndex)
-		point_weights = np.delete(point_weights, luckyIndex)
-		setMinDist = np.delete(setMinDist, luckyIndex)
+		# Need to go from index of reduced set to normal index
+		# To do this, count amount masked in the previous index positions
+		del_mask[luckyIndex] = 1 
 
 		# Update min distance by checking if closer to new center than before
 		for index in range(len(points)):
@@ -105,7 +111,10 @@ def kmeansPP(P, WP, k, iter):  # point_weights must be column vector
 			if newDist < setMinDist[index]:
 				setMinDist[index] = newDist
 
-	print("  finished precomputation, starting lloyd (it might take a while)")
+
+	end = time.time()
+	print("	  finished precomputation, time needed: ", np.round(end - start, 2), "s")
+	print("     starting LLoyd, might take a while")
 	start = time.time()
 	new_centers = lloyd(P, WP, center_set, iter)
 	end = time.time()
