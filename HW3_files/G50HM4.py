@@ -70,8 +70,7 @@ def kmeansPP(P, WP, k, iter):  # point_weights must be column vector
 	# Each iteration we need distance of points to the closest center
 	# Initial distance computation
 	setMinDist = np.zeros(len(points))
-	for index in range(len(points)):
-		setMinDist[index] = lin.norm(points[index]- center_set[0])
+	setMinDist = np.linalg.norm(points - center_set[0], axis=1)
 
 	# Main algorithm loop
 	for round in range(0, k-1):  # Only k-1 centers still have to be chosen
@@ -104,12 +103,10 @@ def kmeansPP(P, WP, k, iter):  # point_weights must be column vector
 		del_mask[luckyIndex] = 1 
 
 		# Update min distance by checking if closer to new center than before
+		newDist = np.linalg.norm(points - center_set[round], axis=1)
 		for index in range(len(points)):
-			# Compute new distance, between point and new center
-			newDist = lin.norm(points[index] - center_set[round])
-			# Update distance if smaller
-			if newDist < setMinDist[index]:
-				setMinDist[index] = newDist
+			if newDist[index] < setMinDist[index]:
+				setMinDist[index] = newDist[index]
 
 
 	end = time.time()
